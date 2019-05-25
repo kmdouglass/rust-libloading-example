@@ -1,7 +1,7 @@
-use std::boxed::Box;
 use std::ffi::OsStr;
 
 use libc::c_int;
+use libloading::os::unix::Symbol as RawSymbol;
 use libloading::{Library, Symbol};
 
 #[repr(C)]
@@ -12,22 +12,24 @@ type Init = extern "C" fn() -> *mut Object;
 type GetInfo = extern "C" fn(*const Object) -> c_int;
 type SetInfo = extern "C" fn(*mut Object, c_int);
 
-struct Plugin<'a> {
-    get_info: Symbol<'a, GetInfo>,
-    library: Box<Library>,
+struct Plugin {
+    get_info: RawSymbol<GetInfo>,
+    library: Library,
     object: *mut Object,
-    set_info: Symbol<'a, SetInfo>,
+    set_info: RawSymbol<SetInfo>,
 }
 
-impl<'a> Plugin<'a> {
-    fn new(library_name: &OsStr) -> Plugin<'a> {
-        let library = Box::new(Library::new(library_name).unwrap());
-        let init: Symbol<Init> = unsafe { library.get(b"init\0").unwrap() };
+impl Plugin {
+    unsafe fn new(library_name: &OsStr) -> Plugin {
+        let library = Library::new(library_name).unwrap();
+        let init: Symbol<Init> = library.get(b"init\0").unwrap();
 
         let object: *mut Object = init();
 
-        let get_info: Symbol<GetInfo> = unsafe { library.get(b"get_info\0").unwrap() };
-        let set_info: Symbol<SetInfo> = unsafe { library.get(b"set_info\0").unwrap() };
+        let get_info: Symbol<GetInfo> = library.get(b"get_info\0").unwrap();
+        let get_info = get_info.into_raw();
+        let set_info: Symbol<SetInfo> = library.get(b"set_info\0").unwrap();
+        let set_info = set_info.into_raw();
 
         Plugin {
             get_info: get_info,
@@ -40,7 +42,7 @@ impl<'a> Plugin<'a> {
 
 fn main() {
     let library_path: &OsStr = OsStr::new("ffi-test/libffi-test.so");
-    let plugin = Plugin::new(library_path);
+    let plugin = unsafe { Plugin::new(library_path) };
 
     println!("Original value: {}", (plugin.get_info)(plugin.object));
     (plugin.set_info)(plugin.object, 42);
