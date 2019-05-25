@@ -1,5 +1,5 @@
+use std::boxed::Box;
 use std::ffi::OsStr;
-use std::rc::Rc;
 
 use libc::c_int;
 use libloading::{Library, Symbol};
@@ -14,14 +14,14 @@ type SetInfo = extern "C" fn(*mut Object, c_int);
 
 struct Plugin<'a> {
     get_info: Symbol<'a, GetInfo>,
-    library: Rc<Library>,
+    library: Box<Library>,
     object: *mut Object,
     set_info: Symbol<'a, SetInfo>,
 }
 
 impl<'a> Plugin<'a> {
     fn new(library_name: &OsStr) -> Plugin<'a> {
-        let library = Rc::new(Library::new(library_name).unwrap());
+        let library = Box::new(Library::new(library_name).unwrap());
         let init: Symbol<Init> = unsafe { library.get(b"init\0").unwrap() };
 
         let object: *mut Object = init();
@@ -31,7 +31,7 @@ impl<'a> Plugin<'a> {
 
         Plugin {
             get_info: get_info,
-            library: Rc::clone(&library),
+            library: library,
             object: object,
             set_info: set_info,
         }
