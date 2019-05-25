@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::rc::Rc;
 
 use libc::c_int;
@@ -18,21 +19,28 @@ struct Plugin<'a> {
     set_info: Symbol<'a, SetInfo>,
 }
 
+impl<'a> Plugin<'a> {
+    fn new(library_name: &OsStr) -> Plugin<'a> {
+        let library = Rc::new(Library::new(library_name).unwrap());
+        let init: Symbol<Init> = unsafe { library.get(b"init\0").unwrap() };
+
+        let object: *mut Object = init();
+
+        let get_info: Symbol<GetInfo> = unsafe { library.get(b"get_info\0").unwrap() };
+        let set_info: Symbol<SetInfo> = unsafe { library.get(b"set_info\0").unwrap() };
+
+        Plugin {
+            get_info: get_info,
+            library: Rc::clone(&library),
+            object: object,
+            set_info: set_info,
+        }
+    }
+}
+
 fn main() {
-    let library = Rc::new(Library::new("ffi-test/libffi-test.so").unwrap());
-    let init: Symbol<Init> = unsafe { library.get(b"init\0").unwrap() };
-
-    let object: *mut Object = init();
-
-    let get_info: Symbol<GetInfo> = unsafe { library.get(b"get_info\0").unwrap() };
-    let set_info: Symbol<SetInfo> = unsafe { library.get(b"set_info\0").unwrap() };
-
-    let plugin = Plugin {
-        get_info: get_info,
-        library: Rc::clone(&library),
-        object: object,
-        set_info: set_info,
-    };
+    let library_path: &OsStr = OsStr::new("ffi-test/libffi-test.so");
+    let plugin = Plugin::new(library_path);
 
     println!("Original value: {}", (plugin.get_info)(plugin.object));
     (plugin.set_info)(plugin.object, 42);
