@@ -39,6 +39,7 @@ impl VTableV0 {
 }
 
 struct Plugin {
+    #[allow(dead_code)]
     library: Library,
     object: *mut Object,
     vtable: VTableV0,
