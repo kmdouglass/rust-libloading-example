@@ -30,6 +30,13 @@ void free_object(struct object* obj) {
 }
 
 /**
+ * Returns the version of the C API used by this library.
+ */
+int get_api_version(void) {
+  return 0;
+}
+
+/**
  * Returns the value of the info field of the given object struct.
  */
 int get_info(const struct object* obj) {
